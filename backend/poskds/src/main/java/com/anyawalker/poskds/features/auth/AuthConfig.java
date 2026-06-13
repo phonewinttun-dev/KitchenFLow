@@ -21,6 +21,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.expression.WebExpressionAuthorizationManager;
 
 @Configuration
 @EnableWebSecurity
@@ -41,7 +42,13 @@ public class AuthConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .httpBasic(Customizer.withDefaults())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**").permitAll()
+
+                        .requestMatchers("/api/auth/**")
+                        .permitAll()
+
+                        .requestMatchers("/api/cashier/**")
+                        .access(new WebExpressionAuthorizationManager("hasAuthority('ROLE_CASHIER') or hasAuthority('ROLE_ADMIN')"))
+
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
@@ -75,9 +82,7 @@ public class AuthConfig {
     @Bean
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
         JwtGrantedAuthoritiesConverter grantedAuthoritiesConverter = new JwtGrantedAuthoritiesConverter();
-        // Reads permissions directly from the "permissions" claim array/string
         grantedAuthoritiesConverter.setAuthoritiesClaimName("role");
-        // No automatic prefixing (relying on raw claim strings)
         grantedAuthoritiesConverter.setAuthorityPrefix("ROLE_");
 
         JwtAuthenticationConverter jwtAuthenticationConverter = new JwtAuthenticationConverter();

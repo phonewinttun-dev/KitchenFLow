@@ -18,19 +18,29 @@ public class Token {
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", referencedColumnName = "id", unique = true, nullable = false)
     private User user;
-
+    //for refresh token
     @Column(name = "expires_at", nullable = false)
     private LocalDateTime expiresAt;
-
+    //fir refresh token
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
     public Token() {}
 
-    public Token(User user, LocalDateTime expiresAt, LocalDateTime createdAt) {
+    public Token(User user, LocalDateTime expiresAt, LocalDateTime createdAt,LocalDateTime updatedAt) {
         this.user = user;
         this.expiresAt = expiresAt;
         this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+    }
+    public LocalDateTime getUpdatedAt(){
+        return this.updatedAt;
+    }
+    public void setUpdatedAt(LocalDateTime dateTime){
+        this.updatedAt = dateTime;
     }
 
     public String getRefreshToken() {
