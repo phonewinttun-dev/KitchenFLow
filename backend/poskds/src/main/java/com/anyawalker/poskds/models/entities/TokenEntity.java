@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "tokens")
-public class Token {
+public class TokenEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -16,8 +16,8 @@ public class Token {
     private String accessToken;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", referencedColumnName = "id", unique = true, nullable = false)
-    private User user;
+    @JoinColumn(name = "user_id", unique = true, nullable = false)
+    private UserEntity userEntity;
     //for refresh token
     @Column(name = "expires_at", nullable = false)
     private LocalDateTime expiresAt;
@@ -28,10 +28,10 @@ public class Token {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    public Token() {}
+    public TokenEntity() {}
 
-    public Token(User user, LocalDateTime expiresAt, LocalDateTime createdAt,LocalDateTime updatedAt) {
-        this.user = user;
+    public TokenEntity(UserEntity userEntity, LocalDateTime expiresAt, LocalDateTime createdAt, LocalDateTime updatedAt) {
+        this.userEntity = userEntity;
         this.expiresAt = expiresAt;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
@@ -59,12 +59,12 @@ public class Token {
         this.accessToken = accessToken;
     }
 
-    public User getUser() {
-        return user;
+    public UserEntity getUser() {
+        return userEntity;
     }
 
-    public void setUser(User user) {
-        this.user = user;
+    public void setUser(UserEntity userEntity) {
+        this.userEntity = userEntity;
     }
 
     public LocalDateTime getExpiresAt() {

@@ -1,6 +1,6 @@
 package com.anyawalker.poskds.features.auth;
 
-import com.anyawalker.poskds.models.entities.User;
+import com.anyawalker.poskds.models.entities.UserEntity;
 import com.anyawalker.poskds.repos.UserRepo;
 import org.jspecify.annotations.NonNull;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -22,7 +22,7 @@ public class CustomUserDetailsService implements UserDetailsService {
     @NonNull
     public UserDetails loadUserByUsername( @NonNull String email) throws UsernameNotFoundException {
 
-        Optional<User> user = userRepo.findByEmail(email);
+        Optional<UserEntity> user = userRepo.findByEmail(email);
 
         if (user.isEmpty())
             throw new UsernameNotFoundException("User with this name doesn't exist");

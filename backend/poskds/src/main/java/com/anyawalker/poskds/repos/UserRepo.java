@@ -1,14 +1,14 @@
 package com.anyawalker.poskds.repos;
 
-import com.anyawalker.poskds.models.entities.User;
+import com.anyawalker.poskds.models.entities.UserEntity;
+import org.jspecify.annotations.NonNull;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import javax.swing.text.html.Option;
 import java.util.Optional;
 
 @Repository
-public interface UserRepo extends JpaRepository<User, Long> {
+public interface UserRepo extends JpaRepository< @NonNull  UserEntity,@NonNull Long> {
 
-    Optional<User> findByEmail(String email);
+    Optional<UserEntity> findByEmail(String email);
 }

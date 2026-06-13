@@ -3,8 +3,8 @@ package com.anyawalker.poskds.features.auth;
 import com.anyawalker.poskds.features.auth.dtos.TokenResponse;
 import com.anyawalker.poskds.features.auth.exceptions.InvalidRefreshTokenException;
 import com.anyawalker.poskds.features.auth.exceptions.TooEarlyException;
-import com.anyawalker.poskds.models.entities.Token;
-import com.anyawalker.poskds.models.entities.User;
+import com.anyawalker.poskds.models.entities.TokenEntity;
+import com.anyawalker.poskds.models.entities.UserEntity;
 import com.anyawalker.poskds.repos.TokenRepo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
@@ -18,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class TokenService {
@@ -30,56 +29,56 @@ public class TokenService {
     private JwtEncoder jwtEncoder;
 
     @Transactional
-    public TokenResponse generateTokens(User user) {
+    public TokenResponse generateTokens(UserEntity userEntity) {
 
-        Token existingToken = user.getToken();
-        if (existingToken != null){
-            user.setToken(null);
+        TokenEntity existingTokenEntity = userEntity.getToken();
+        if (existingTokenEntity != null){
+            userEntity.setToken(null);
             tokenRepo.flush();
         }
 
         // Generate stateless JWT access token
-        String accessToken = generateAccessToken(user);
+        String accessToken = generateAccessToken(userEntity);
 
         // Create stateful UUID refresh token in database (valid for 7 days)
         //mental model : refresh Token ( for frontend )  > access token (for backend)
-        Token token = new Token();
-        token.setUser(user);
-        token.setAccessToken(accessToken);
-        token.setCreatedAt(LocalDateTime.now());
-        token.setExpiresAt(LocalDateTime.now().plusMinutes(5));
+        TokenEntity tokenEntity = new TokenEntity();
+        tokenEntity.setUser(userEntity);
+        tokenEntity.setAccessToken(accessToken);
+        tokenEntity.setCreatedAt(LocalDateTime.now());
+        tokenEntity.setExpiresAt(LocalDateTime.now().plusMinutes(5));
 
         // Save session (UUID generated automatically by JPA)
-        Token savedToken = tokenRepo.save(token);
+        TokenEntity savedTokenEntity = tokenRepo.save(tokenEntity);
 
-        return new TokenResponse(accessToken, savedToken.getRefreshToken());
+        return new TokenResponse(accessToken, savedTokenEntity.getRefreshToken());
     }
 
     @Transactional
     public TokenResponse refreshAccessToken(String refreshToken) {
-        Token token = tokenRepo.findById(refreshToken)
+        TokenEntity tokenEntity = tokenRepo.findById(refreshToken)
                 .orElseThrow(() -> new InvalidRefreshTokenException("Invalid refresh token."));
 
-        if (LocalDateTime.now().isAfter(token.getExpiresAt())) {
-            tokenRepo.delete(token); // Cleanup expired token
+        if (LocalDateTime.now().isAfter(tokenEntity.getExpiresAt())) {
+            tokenRepo.delete(tokenEntity); // Cleanup expired token
             throw new InvalidRefreshTokenException("Refresh token has expired. Please login again.");
         }
         //rule : frontend is forced to refresh only right before 30seconds before expires!
-        else if (LocalDateTime.now().isBefore(token.getCreatedAt().plusSeconds(30))){
+        else if (LocalDateTime.now().isBefore(tokenEntity.getCreatedAt().plusSeconds(30))){
             throw new TooEarlyException("Too early to be refreshed");
         }
-        else if (token.getUpdatedAt() != null && LocalDateTime.now().isBefore(token.getUpdatedAt().plusSeconds(30))){
+        else if (tokenEntity.getUpdatedAt() != null && LocalDateTime.now().isBefore(tokenEntity.getUpdatedAt().plusSeconds(30))){
             throw new TooEarlyException("Too early to be refreshed");
         }
         // Generate a new access token
-        String newAccessToken = generateAccessToken(token.getUser());
+        String newAccessToken = generateAccessToken(tokenEntity.getUser());
 
         // Update active session with the new access token
-        token.setAccessToken(newAccessToken);
-        token.setUpdatedAt(LocalDateTime.now());
-        tokenRepo.save(token);
+        tokenEntity.setAccessToken(newAccessToken);
+        tokenEntity.setUpdatedAt(LocalDateTime.now());
+        tokenRepo.save(tokenEntity);
 
-        return new TokenResponse(newAccessToken, token.getRefreshToken());
+        return new TokenResponse(newAccessToken, tokenEntity.getRefreshToken());
     }
 
     @Transactional
@@ -87,7 +86,7 @@ public class TokenService {
         tokenRepo.deleteById(refreshToken);
     }
 
-    private String generateAccessToken(User user) {
+    private String generateAccessToken(UserEntity userEntity) {
         Instant now = Instant.now();
         JwsHeader jwsHeader = JwsHeader.with(MacAlgorithm.HS256).build();
 
@@ -95,10 +94,10 @@ public class TokenService {
                 .issuer("poskds-backend")
                 .issuedAt(now)
                 .expiresAt(now.plus(2, ChronoUnit.MINUTES))
-                .subject(user.getEmail())
-                .claim("userId", user.getId())
+                .subject(userEntity.getEmail())
+                .claim("userId", userEntity.getId())
                 // we need to remove the prefix because jwtAuthoritiesConverter will generate the converter on fly
-                .claim("role", user.getRole().replace("ROLE_",""))
+                .claim("role", userEntity.getRole().replace("ROLE_",""))
                 .build();
 
         return jwtEncoder.encode(JwtEncoderParameters.from(jwsHeader,claims)).getTokenValue();

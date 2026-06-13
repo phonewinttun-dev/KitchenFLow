@@ -1,10 +1,11 @@
 package com.anyawalker.poskds.models.entities;
 
 import jakarta.persistence.*;
+import java.util.List;
 
 @Entity
 @Table(name = "users")
-public class User {
+public class UserEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -21,17 +22,20 @@ public class User {
     @Column(name = "role", length = 60)
     private String role;
 
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private Token token;
+    @OneToOne(mappedBy = "userEntity", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private TokenEntity tokenEntity;
+    @OneToMany(mappedBy = "userEntity",fetch = FetchType.LAZY)
+    private List<OrderEntity> orderEntityList;
 
-    public User() {}
+    public UserEntity() {}
 
-    public User(Long id, String name, String email, String password, String role) {
+    public UserEntity(Long id, String name, String email, String password, String role,List<OrderEntity> orderEntityList) {
         this.id = id;
         this.email = email;
         this.username = name;
         this.password = password;
         this.role = role;
+        this.orderEntityList = orderEntityList;
     }
 
     public Long getId() {
@@ -40,6 +44,13 @@ public class User {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public List<OrderEntity> getOrderEntityList(){
+        return this.orderEntityList;
+    }
+    public void setOrderEntityList(List<OrderEntity> orderEntityList){
+        this.orderEntityList = orderEntityList;
     }
 
     public String getUsername() {
@@ -74,11 +85,11 @@ public class User {
         this.role = role;
     }
 
-    public Token getToken() {
-        return token;
+    public TokenEntity getToken() {
+        return tokenEntity;
     }
 
-    public void setToken(Token token) {
-        this.token = token;
+    public void setToken(TokenEntity tokenEntity) {
+        this.tokenEntity = tokenEntity;
     }
 }
