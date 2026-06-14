@@ -1,5 +1,6 @@
 package com.anyawalker.poskds.features.postconstruct;
 
+import com.anyawalker.poskds.models.dtos.OrderDuration;
 import com.anyawalker.poskds.models.entities.MenuEntity;
 import com.anyawalker.poskds.repos.MenuRepo;
 import jakarta.annotation.PostConstruct;
@@ -30,7 +31,7 @@ public class PreUpdateMenuTable {
             shanKhaukSwew.setCategoryName("Noodles");
             shanKhaukSwew.setCurrentPrice(3000);
             shanKhaukSwew.setAvailable(true);
-            shanKhaukSwew.setCookingDuration("medium");
+            shanKhaukSwew.setCookingDuration(OrderDuration.MEDIUM.getValue());
             menuRepo.save(shanKhaukSwew);
 
             MenuEntity moteHinGar = new MenuEntity();
@@ -38,7 +39,7 @@ public class PreUpdateMenuTable {
             moteHinGar.setCategoryName("Noodles");
             moteHinGar.setCurrentPrice(2500);
             moteHinGar.setAvailable(true);
-            moteHinGar.setCookingDuration("fast");
+            moteHinGar.setCookingDuration(OrderDuration.FAST.getValue());
             menuRepo.save(moteHinGar);
 
             MenuEntity lahpetThoke = new MenuEntity();
@@ -46,7 +47,7 @@ public class PreUpdateMenuTable {
             lahpetThoke.setCategoryName("Salad");
             lahpetThoke.setCurrentPrice(2000);
             lahpetThoke.setAvailable(true);
-            lahpetThoke.setCookingDuration("fast");
+            lahpetThoke.setCookingDuration(OrderDuration.FAST.getValue());
             menuRepo.save(lahpetThoke);
 
             MenuEntity tofuKyaw = new MenuEntity();
@@ -54,7 +55,7 @@ public class PreUpdateMenuTable {
             tofuKyaw.setCategoryName("Snack");
             tofuKyaw.setCurrentPrice(1500);
             tofuKyaw.setAvailable(true);
-            tofuKyaw.setCookingDuration("medium");
+            tofuKyaw.setCookingDuration(OrderDuration.MEDIUM.getValue());
             menuRepo.save(tofuKyaw);
 
             MenuEntity ohnNoKhaukSwew = new MenuEntity();
@@ -62,7 +63,7 @@ public class PreUpdateMenuTable {
             ohnNoKhaukSwew.setCategoryName("Noodles");
             ohnNoKhaukSwew.setCurrentPrice(3500);
             ohnNoKhaukSwew.setAvailable(true);
-            ohnNoKhaukSwew.setCookingDuration("medium");
+            ohnNoKhaukSwew.setCookingDuration(OrderDuration.MEDIUM.getValue());
             menuRepo.save(ohnNoKhaukSwew);
 
             log.info("Menu table seeded successfully.");

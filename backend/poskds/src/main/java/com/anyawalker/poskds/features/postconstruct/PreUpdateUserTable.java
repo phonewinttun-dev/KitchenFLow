@@ -32,6 +32,24 @@ public class PreUpdateUserTable {
             userRepo.save(userEntity);
         }
 
+        if (userRepo.findByEmail("cashier1@gmail.com").isEmpty()){
+            UserEntity userEntity = new UserEntity();
+            userEntity.setUsername("cashier1");
+            userEntity.setEmail("cashier1@gmail.com");
+            userEntity.setRole("ROLE_CASHIER");
+            userEntity.setPassword(passwordEncoder.encode("Cashier123#"));
+            userRepo.save(userEntity);
+        }
+
+        if (userRepo.findByEmail("cashier2@gmail.com").isEmpty()){
+            UserEntity userEntity = new UserEntity();
+            userEntity.setUsername("cashier2");
+            userEntity.setEmail("cashier2@gmail.com");
+            userEntity.setRole("ROLE_CASHIER");
+            userEntity.setPassword(passwordEncoder.encode("Cashier123#"));
+            userRepo.save(userEntity);
+        }
+
 
     }
 }

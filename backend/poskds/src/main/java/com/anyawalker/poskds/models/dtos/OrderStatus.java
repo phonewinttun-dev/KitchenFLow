@@ -1,0 +1,18 @@
+package com.anyawalker.poskds.models.dtos;
+
+public enum OrderStatus {
+    WAITING("waiting"),
+    COOKING("cooking"),
+    COMPLETE("complete"),
+    CANCEL("cancel");
+
+    private final String value;
+
+    OrderStatus(String value) {
+        this.value = value;
+    }
+
+    public String getValue() {
+        return this.value;
+    }
+}

@@ -24,8 +24,8 @@ public class MenuService {
                         new MenuResponse(menuEntity.getId(),
                                 menuEntity.getName(),
                                 menuEntity.getCurrentPrice(),
-                                menuEntity.getCategoryName(),
                                 menuEntity.getCookingDuration(),
+                                menuEntity.getCategoryName(),
                                 menuEntity.isAvailable(),
                                 menuEntity.getCreatedAt(),
                                 menuEntity.getUpdatedAt())
