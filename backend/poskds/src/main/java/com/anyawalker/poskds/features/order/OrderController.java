@@ -2,6 +2,9 @@ package com.anyawalker.poskds.features.order;
 
 import com.anyawalker.poskds.features.order.dtos.OrderItemUpdateRequest;
 import com.anyawalker.poskds.features.order.dtos.OrderRequest;
+import com.anyawalker.poskds.features.order.dtos.OrderStatusRequest;
+import com.anyawalker.poskds.features.order.exceptions.AlreadyUpdatedException;
+import com.anyawalker.poskds.features.order.exceptions.InValidOrderStatusException;
 import com.anyawalker.poskds.features.order.exceptions.OrderFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -25,7 +28,9 @@ public class OrderController {
     public ResponseEntity<?> viewAllOrders(){
         return ResponseEntity.ok(orderService.viewAllOrders());
     }
+
     @PostMapping("/create_order")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_CASHIER')")
     public ResponseEntity<?> createOrder(@RequestBody OrderRequest orderRequest,@AuthenticationPrincipal Jwt jwt){
         try{
             Long userId = jwt.getClaim("userId");
@@ -49,21 +54,20 @@ public class OrderController {
                     .body(Map.of("status",e.getMessage()));
         }
     }
-
-    @PatchMapping("/update_order_items/{orderId}")
-    @PreAuthorize("hasAnyAuthority('ROLE_CASHIER','ROLE_ADMIN')")
-    public ResponseEntity<?> updateOrderItem(@PathVariable Long orderId,
-                                             @RequestBody Map<String, List<OrderItemUpdateRequest>> orderRequest,
-                                             @AuthenticationPrincipal Jwt jwt){
+    @PatchMapping("/update_order_status/{orderId}")
+    public ResponseEntity<?> updateOrderStatus(@PathVariable Long orderId, @RequestBody OrderStatusRequest orderStatusRequest,
+                                               @AuthenticationPrincipal Jwt jwt){
         try {
             Long userId = jwt.getClaim("userId");
-            return ResponseEntity.ok(orderService.updateOrderItems(orderId,orderRequest.get("orderItems"),userId));
-
+            String userRole = "ROLE_" + jwt.getClaim("role");
+            return ResponseEntity.ok(orderService.updateOrderStatus(orderId,orderStatusRequest,userId,userRole));
         }
-        catch (OrderFailureException e){
+        catch (InValidOrderStatusException | OrderFailureException e){
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("status",e.getMessage()));
         }
-
+        catch (AlreadyUpdatedException e){
+            return ResponseEntity.ok(Map.of("status", e.getMessage()));
+        }
 
     }
 

@@ -2,7 +2,10 @@ package com.anyawalker.poskds.features.order;
 
 import com.anyawalker.poskds.features.menu.MenuService;
 import com.anyawalker.poskds.features.order.dtos.*;
+import com.anyawalker.poskds.features.order.exceptions.AlreadyUpdatedException;
+import com.anyawalker.poskds.features.order.exceptions.InValidOrderStatusException;
 import com.anyawalker.poskds.features.order.exceptions.OrderFailureException;
+import com.anyawalker.poskds.features.order.mappers.OrderItemMapper;
 import com.anyawalker.poskds.models.dtos.OrderStatus;
 import com.anyawalker.poskds.models.entities.MenuEntity;
 import com.anyawalker.poskds.models.entities.OrderEntity;
@@ -10,26 +13,27 @@ import com.anyawalker.poskds.models.entities.OrderItemEntity;
 import com.anyawalker.poskds.models.entities.UserEntity;
 import com.anyawalker.poskds.repos.OrderRepo;
 import com.anyawalker.poskds.repos.UserRepo;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @Service
 public class OrderService {
+
     private final OrderRepo orderRepo;
     private final UserRepo userRepo;
     private final MenuService menuService;
-
-    public OrderService(OrderRepo orderRepo, UserRepo userRepo, MenuService menuService) {
+    private final OrderItemMapper orderItemMapper;
+    public OrderService(OrderRepo orderRepo, UserRepo userRepo, MenuService menuService,OrderItemMapper orderItemMapper) {
         this.orderRepo = orderRepo;
         this.userRepo = userRepo;
         this.menuService = menuService;
+        this.orderItemMapper = orderItemMapper;
     }
 
     public List<OrderResponse> viewAllOrders() {
@@ -40,16 +44,10 @@ public class OrderService {
                         orderEntity.getUserEntity().getId(),
                         orderEntity.getStatus(),
                         "",
-                        orderEntity.getOrderItemEntityList().stream().map(
-                                orderItemEntity -> new OrderItemResponse(
-                                        orderItemEntity.getId(),
-                                        orderItemEntity.getMenuEntity().getId(),
-                                        orderItemEntity.getMenuEntity().getName(),
-                                        orderItemEntity.getQuantity(),
-                                        orderItemEntity.getUnitPrice(),
-                                        orderItemEntity.getTotalPrice())
-
-                        ).toList(), orderEntity.getTotalPrice()
+                        orderEntity.getOrderItemEntityList().stream()
+                                .map(orderItemMapper::toResponseDto)
+                                .toList(),
+                        orderEntity.getTotalPrice()
                 )
         ).toList();
     }
@@ -101,16 +99,8 @@ public class OrderService {
         //map orderItemEntity to orderItemResponse to get the db generated id
         List<OrderItemResponse> orderItemResponses = savedOrder.getOrderItemEntityList()
                 .stream()
-                .map(
-                        orderItemEntity -> new OrderItemResponse(
-                                orderItemEntity.getId(),
-                                orderItemEntity.getMenuEntity().getId(),
-                                orderItemEntity.getMenuEntity().getName(),
-                                orderItemEntity.getQuantity(),
-                                orderItemEntity.getUnitPrice(),
-                                orderItemEntity.getTotalPrice()
-                        )
-                ).toList();
+                .map(orderItemMapper::toResponseDto)
+                .toList();
 
         return new OrderResponse(
                 savedOrder.getId(),
@@ -118,25 +108,6 @@ public class OrderService {
                 savedOrder.getStatus(),
                 "order created successfully",
                 orderItemResponses,savedOrder.getTotalPrice());
-
-    }
-
-    @Transactional
-    public OrderCancelResponse cancelOrder(Long orderId, Long userId) {
-
-        OrderEntity orderEntity = orderRepo.
-                findByIdAndUserEntity_Id(orderId, userId)
-                .orElseThrow(() ->
-                        new OrderFailureException("Order doesn't exist")
-                );
-
-        if (orderEntity.getStatus().equals(OrderStatus.CANCEL.getValue()))
-            throw new OrderFailureException("Order is already canceled");
-
-        orderEntity.setResolvedAt(LocalDateTime.now());
-        orderEntity.setStatus(OrderStatus.CANCEL.getValue());
-
-        return new OrderCancelResponse(orderEntity.getId(), userId, orderEntity.getStatus(), orderEntity.getResolvedAt());
     }
 
     @Transactional
@@ -146,9 +117,7 @@ public class OrderService {
 
         OrderEntity orderEntity = orderRepo.
                 findByIdAndUserEntity_Id(orderId, userId)
-                .orElseThrow(() ->
-                        new OrderFailureException("Order doesn't exist")
-                );
+                .orElseThrow(() -> new OrderFailureException("Order doesn't exist"));
 
         if (!orderEntity.getStatus().equals(OrderStatus.WAITING.getValue()))
             throw new OrderFailureException("Cannot update due to order status " +
@@ -203,19 +172,12 @@ public class OrderService {
         }
         orderEntity.setTotalPrice(orderTotalPrice.get());
         OrderEntity savedOrder = orderRepo.save(orderEntity);
+
         //map orderItemEntity to orderItemResponse to get the db generated id
         List<OrderItemResponse> orderItemResponses = savedOrder.getOrderItemEntityList()
                 .stream()
-                .map(
-                        orderItemEntity -> new OrderItemResponse(
-                                orderItemEntity.getId(),
-                                orderItemEntity.getMenuEntity().getId(),
-                                orderItemEntity.getMenuEntity().getName(),
-                                orderItemEntity.getQuantity(),
-                                orderItemEntity.getUnitPrice(),
-                                orderItemEntity.getTotalPrice()
-                        )
-                ).toList();
+                .map(orderItemMapper::toResponseDto)
+                .toList();
 
         return new OrderResponse(
                 savedOrder.getId(),
@@ -223,9 +185,59 @@ public class OrderService {
                 savedOrder.getStatus(),
                 "order updated successfully",
                 orderItemResponses, savedOrder.getTotalPrice());
-
-
     }
 
+    @Transactional
+    public OrderResponse updateOrderStatus(Long orderId,OrderStatusRequest orderStatusRequest,Long userId,String userRole){
+        //state level permissions
+        Map<String, Set<String>> authorities = Map.of(
+                "ROLE_CASHIER",Set.of(OrderStatus.CANCEL.getValue()),
+                "ROLE_CHEF", Set.of(OrderStatus.WAITING.getValue(),OrderStatus.COMPLETE.getValue(),OrderStatus.COOKING.getValue()),
+                "ROLE_ADMIN", Set.of(OrderStatus.COMPLETE.getValue(),OrderStatus.WAITING.getValue(),OrderStatus.COOKING.getValue(),OrderStatus.CANCEL.getValue())
+        );
+        //state rules
+        //waiting --> cooking --> complete
+        //waiting --> cancel
+        Map<String,Set<String>> statusRules = Map.of(
+                OrderStatus.WAITING.getValue(),Set.of(OrderStatus.COOKING.getValue(),OrderStatus.CANCEL.getValue()),
+                OrderStatus.COOKING.getValue(), Set.of(OrderStatus.COMPLETE.getValue())
+        );
+        //get by userRole
+        Set<String> grantedAuthorities = authorities.get(userRole);
+        //check the typo
+        String nextStatus = orderStatusRequest.status().trim().toLowerCase();
+        //check if the user has pemission to change status
+        if (grantedAuthorities == null || !grantedAuthorities.contains(nextStatus))
+            throw new InValidOrderStatusException("Invalid or Unauthorized status cannot be updated");
+        //get order by userid and orderId
+        OrderEntity targetOrderEntity = orderRepo.findByIdAndUserEntity_Id(orderId,userId)
+                .orElseThrow(() -> new OrderFailureException("Order with Id " + orderId + " doesn't exist"));
 
+        String currentStatus = targetOrderEntity.getStatus();
+        //check if the incoming status is the same
+        if (nextStatus.equals(currentStatus))
+            throw new AlreadyUpdatedException("Already updated");
+        //check if the current status can be updatable
+        else if (statusRules.get(currentStatus) == null)
+            throw new InValidOrderStatusException("Cannot update %s to %s (OrderId:%d)"
+                    .formatted(currentStatus,nextStatus,orderId));
+
+        //update status via entity object
+        targetOrderEntity.setStatus(nextStatus);
+
+        //Mapping operation
+        List<OrderItemResponse> orderItemResponses = targetOrderEntity.getOrderItemEntityList()
+                .stream()
+                .map(orderItemMapper::toResponseDto)
+                .toList();
+
+        return  new OrderResponse(
+                targetOrderEntity.getId(),
+                userId,
+                targetOrderEntity.getStatus(),
+                "order status updated successfully",
+                orderItemResponses,
+                targetOrderEntity.getTotalPrice()
+        );
+    }
 }
