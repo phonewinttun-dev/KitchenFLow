@@ -35,6 +35,7 @@ erDiagram
         integer current_price
         varchar_100 category_name
         boolean is_available "default: true"
+        varchar_60 cooking_duration "fast, medium, heavy"
         timestamp created_at
     }
 
@@ -93,6 +94,7 @@ Stores the master food and beverage menu items.
 | `current_price` | `INTEGER` | | Active price of the item on the menu. |
 | `category_name` | `VARCHAR(100)`| | Category (e.g., Drinks, Mains, Sides). |
 | `is_available` | `BOOLEAN` | | Availability toggle. Chef switches this to `false` in KDS to sync sell-out. |
+| `cooking_duration`| `VARCHAR(60)` | | Preparation duration tier: `fast`, `medium`, `heavy`. |
 | `created_at` | `TIMESTAMP` | | Date and time the menu item was created. |
 
 ### 4. `orders`
