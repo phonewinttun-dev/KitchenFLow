@@ -29,11 +29,17 @@ public class OrderService {
     private final UserRepo userRepo;
     private final MenuService menuService;
     private final OrderItemMapper orderItemMapper;
-    public OrderService(OrderRepo orderRepo, UserRepo userRepo, MenuService menuService,OrderItemMapper orderItemMapper) {
+    private final OrderListenerService orderListenerService;
+    public OrderService(OrderListenerService orderListenerService,
+                        OrderRepo orderRepo,
+                        UserRepo userRepo,
+                        MenuService menuService,
+                        OrderItemMapper orderItemMapper) {
         this.orderRepo = orderRepo;
         this.userRepo = userRepo;
         this.menuService = menuService;
         this.orderItemMapper = orderItemMapper;
+        this.orderListenerService = orderListenerService;
     }
 
     public List<OrderResponse> viewAllOrders() {
@@ -209,9 +215,17 @@ public class OrderService {
         //check if the user has pemission to change status
         if (grantedAuthorities == null || !grantedAuthorities.contains(nextStatus))
             throw new InValidOrderStatusException("Invalid or Unauthorized status cannot be updated");
-        //get order by userid and orderId
-        OrderEntity targetOrderEntity = orderRepo.findByIdAndUserEntity_Id(orderId,userId)
-                .orElseThrow(() -> new OrderFailureException("Order with Id " + orderId + " doesn't exist"));
+
+        //chef or admin have to see all order coming from all cashier ( the current focus is one shop not multiple shop)
+        OrderEntity targetOrderEntity;
+        if (userRole.equals("ROLE_ADMIN") || userRole.equals("ROLE_CHEF"))
+            targetOrderEntity = orderRepo.findById(orderId)
+                    .orElseThrow(() -> new OrderFailureException("Order with Id " + orderId + " doesn't exist"));
+
+        //cashier only need to see their own orders
+        else
+            targetOrderEntity = orderRepo.findByIdAndUserEntity_Id(orderId, userId)
+                    .orElseThrow(() -> new OrderFailureException("Order with Id " + orderId + " doesn't exist"));
 
         String currentStatus = targetOrderEntity.getStatus();
         //check if the incoming status is the same
@@ -223,6 +237,9 @@ public class OrderService {
                     .formatted(currentStatus,nextStatus,orderId));
 
         //update status via entity object
+        if (nextStatus.equals(OrderStatus.COMPLETE.getValue()) || nextStatus.equals(OrderStatus.CANCEL.getValue()))
+            targetOrderEntity.setResolvedAt(LocalDateTime.now());
+
         targetOrderEntity.setStatus(nextStatus);
 
         //Mapping operation
@@ -230,14 +247,17 @@ public class OrderService {
                 .stream()
                 .map(orderItemMapper::toResponseDto)
                 .toList();
-
-        return  new OrderResponse(
+        Long orderCreatorId = targetOrderEntity.getUserEntity().getId();
+        OrderResponse response = new OrderResponse(
                 targetOrderEntity.getId(),
-                userId,
+                orderCreatorId,
                 targetOrderEntity.getStatus(),
                 "order status updated successfully",
                 orderItemResponses,
                 targetOrderEntity.getTotalPrice()
         );
+        orderListenerService.resolveListener(orderCreatorId, response);
+
+        return  response;
     }
 }

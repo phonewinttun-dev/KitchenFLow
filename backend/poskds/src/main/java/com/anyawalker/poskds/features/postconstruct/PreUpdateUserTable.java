@@ -49,6 +49,14 @@ public class PreUpdateUserTable {
             userEntity.setPassword(passwordEncoder.encode("Cashier123#"));
             userRepo.save(userEntity);
         }
+        if (userRepo.findByEmail("chef1@gmail.com").isEmpty()){
+            UserEntity userEntity = new UserEntity();
+            userEntity.setUsername("chef1");
+            userEntity.setEmail("chef1@gmail.com");
+            userEntity.setRole("ROLE_CHEF");
+            userEntity.setPassword(passwordEncoder.encode("Chef123#"));
+            userRepo.save(userEntity);
+        }
 
 
     }

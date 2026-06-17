@@ -2,16 +2,19 @@ package com.anyawalker.poskds.features.order;
 
 import com.anyawalker.poskds.features.order.dtos.OrderItemUpdateRequest;
 import com.anyawalker.poskds.features.order.dtos.OrderRequest;
+import com.anyawalker.poskds.features.order.dtos.OrderResponse;
 import com.anyawalker.poskds.features.order.dtos.OrderStatusRequest;
 import com.anyawalker.poskds.features.order.exceptions.AlreadyUpdatedException;
 import com.anyawalker.poskds.features.order.exceptions.InValidOrderStatusException;
 import com.anyawalker.poskds.features.order.exceptions.OrderFailureException;
+import org.jspecify.annotations.NonNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.context.request.async.DeferredResult;
 
 import java.util.List;
 import java.util.Map;
@@ -20,8 +23,10 @@ import java.util.Map;
 @RequestMapping("api/orders")
 public class OrderController {
     private final OrderService orderService;
-    public OrderController(OrderService orderService){
+    private final OrderListenerService orderListenerService;
+    public OrderController(OrderService orderService, OrderListenerService orderListenerService){
         this.orderService = orderService;
+        this.orderListenerService = orderListenerService;
     }
 
     @GetMapping("/view_orders")
@@ -70,5 +75,19 @@ public class OrderController {
         }
 
     }
+    @GetMapping("/listener")
+    public DeferredResult<@ NonNull OrderResponse> changesListener(@AuthenticationPrincipal Jwt jwt){
+        DeferredResult<@NonNull OrderResponse> listener = new DeferredResult<>(60000L,
+                Map.of("status","Time out"));
+        try {
+            Long userId = jwt.getClaim("userId");
+            orderListenerService.register(userId,listener);
+        }
+        catch (RuntimeException e){
+            listener.setErrorResult(e);
+        }
+        return listener;
+    }
+
 
 }
