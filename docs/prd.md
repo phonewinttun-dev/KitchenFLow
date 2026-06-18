@@ -62,9 +62,9 @@ To avoid over-engineering and ensure a rapid time-to-market, the product roadmap
 
 ---
 
-### 6. Architecture & Tech Stack Assumptions
+### 6. Architecture & Tech Stack
 
 - **Database:** PostgreSQL (Relational integrity is mandatory for financial and order matching).
 - **Backend:** Spring Boot / Java (Based on previous schema context, providing robust enterprise-grade REST APIs).
-- **Frontend (POS/KDS):** React or Vue.js (Single Page Applications for real-time, snappy UI updates without page reloads).
-- **Real-Time Sync:** WebSockets or Server-Sent Events (SSE) to instantly push order updates from the Cashier to the Chef's screen.
+- **Frontend (POS/KDS):** React.js
+- **Real-Time Sync:** Server-Sent Events (SSE) to instantly push order updates from the Cashier to the Chef's screen.
