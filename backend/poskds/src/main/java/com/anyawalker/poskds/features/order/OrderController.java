@@ -15,7 +15,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.context.request.async.DeferredResult;
-
 import java.util.List;
 import java.util.Map;
 
@@ -33,7 +32,8 @@ public class OrderController {
     public ResponseEntity<?> viewAllOrders(){
         return ResponseEntity.ok(orderService.viewAllOrders());
     }
-
+    // frontend ---> backend
+    //cashier --> backend ---> chef
     @PostMapping("/create_order")
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_CASHIER')")
     public ResponseEntity<?> createOrder(@RequestBody OrderRequest orderRequest,@AuthenticationPrincipal Jwt jwt){
@@ -76,18 +76,26 @@ public class OrderController {
 
     }
     @GetMapping("/listener")
-    public DeferredResult<@ NonNull OrderResponse> changesListener(@AuthenticationPrincipal Jwt jwt){
-        DeferredResult<@NonNull OrderResponse> listener = new DeferredResult<>(60000L,
-                Map.of("status","Time out"));
+    public DeferredResult<@NonNull List<OrderResponse>> changesListener(@RequestParam Long previousVersion, @AuthenticationPrincipal Jwt jwt){
+
+        DeferredResult<@NonNull List<OrderResponse>> listener = new DeferredResult<>(60000L,
+                List.of());//{ status : "time out" }
         try {
-            Long userId = jwt.getClaim("userId");
-            orderListenerService.register(userId,listener);
+
+            List<OrderResponse> updatedOrders = orderService.getChanges(previousVersion);
+
+            if (!updatedOrders.isEmpty()) {
+                listener.setResult(updatedOrders);
+                return listener;
+            }
+
+            String userRole = "ROLE_" + jwt.getClaim("role");
+            orderListenerService.register(userRole,listener);
         }
         catch (RuntimeException e){
             listener.setErrorResult(e);
         }
+
         return listener;
     }
-
-
 }

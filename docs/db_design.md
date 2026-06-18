@@ -45,7 +45,9 @@ erDiagram
         varchar_60 status "waiting, cooking, complete, cancel"
         integer total_price
         timestamp createdAt
+        timestamp updatedAt
         timestamp resolvedAt
+        bigint globalVersion
     }
 
     ORDER_ITEMS {
@@ -106,8 +108,10 @@ Represents customer tickets created by Cashiers. Status is tracked globally at t
 | `user_id` | `INTEGER` | FK | References `users(id)` (Cashier who placed the order). |
 | `status` | `VARCHAR(60)` | | Preparation state: `waiting`, `cooking`, `complete`, `cancel`. |
 | `total_price` | `INTEGER` | | Overall order total. |
-| `createdAt` | `TIMESTAMP` | | When the cashier created the order. |
-| `resolvedAt` | `TIMESTAMP` | | When the order was marked `complete` or `cancel`. |
+| `createdAt` | `TIMESTAMP` | | When the cashier created the order (stored in UTC). |
+| `updatedAt` | `TIMESTAMP` | | Automatically tracked timestamp of the latest change (stored in UTC). |
+| `resolvedAt` | `TIMESTAMP` | | When the order was marked `complete` or `cancel` (stored in UTC). |
+| `globalVersion`| `BIGINT` | | Global sequence version counter for timezone-free long polling sync. |
 
 ### 5. `order_items`
 Contains the specific items purchased within an order.

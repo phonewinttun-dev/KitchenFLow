@@ -28,6 +28,7 @@ A relational schema modeled in PostgreSQL using Hibernate/JPA, optimized for his
 * **Single-Device Enforcement:** Bi-directional `@OneToOne` mapping between `UserEntity` and `TokenEntity` restricts each account to a single active session.
 * **Price Snapshot Auditing:** `OrderItemEntity` stores a price snapshot (`unitPrice`) at the exact time of purchase to protect historical sales reports if menu prices change.
 * **Automatic JPA Auditing:** `MenuEntity` and `OrderEntity` utilize `@EnableJpaAuditing` to automatically track creation and update timestamps without manual database writes.
+* **Timezone-Independent Auditing:** Auditing fields (`createdAt`, `updatedAt`, `resolvedAt`) utilize `Instant` to ensure all timestamps are represented in UTC, avoiding timezone alignment issues between cashier and chef screens.
 * **Cascading Protections:** Cascading is restricted to parent-to-child paths (e.g. deleting an Order deletes its items) while preventing child-to-parent deletion (deleting an Order/Item never deletes a User or Menu Item).
 
 ---

@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -27,14 +28,17 @@ public class OrderEntity {
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @LastModifiedDate
     @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
     //complete timestamp
     @Column(name = "resolved_at")
-    private LocalDateTime resolvedAt;
+    private Instant resolvedAt;
+
+    @Column(name = "global_version")
+    private Long globalVersion;
 
     @OneToMany(fetch = FetchType.LAZY, mappedBy = "orderEntity", orphanRemoval = true, cascade = CascadeType.ALL)
     private List<OrderItemEntity> orderItemEntityList;
@@ -43,7 +47,7 @@ public class OrderEntity {
     public OrderEntity() {}
 
     // Parameterized Constructor (Excluding auto-generated ID)
-    public OrderEntity(UserEntity userEntity, String status, int totalPrice, LocalDateTime createdAt, LocalDateTime updatedAt, LocalDateTime resolvedAt, List<OrderItemEntity> orderItemEntityList) {
+    public OrderEntity(UserEntity userEntity, String status, int totalPrice, Instant createdAt, Instant updatedAt, Instant resolvedAt, List<OrderItemEntity> orderItemEntityList) {
         this.userEntity = userEntity;
         this.status = status;
         this.totalPrice = totalPrice;
@@ -86,27 +90,27 @@ public class OrderEntity {
         this.totalPrice = totalPrice;
     }
 
-    public LocalDateTime getCreatedAt() {
+    public Instant getCreatedAt() {
         return createdAt;
     }
 
-    public void setCreatedAt(LocalDateTime createdAt) {
+    public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
     }
 
-    public LocalDateTime getUpdatedAt() {
+    public Instant getUpdatedAt() {
         return updatedAt;
     }
 
-    public void setUpdatedAt(LocalDateTime updatedAt) {
+    public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
     }
 
-    public LocalDateTime getResolvedAt() {
+    public Instant getResolvedAt() {
         return resolvedAt;
     }
 
-    public void setResolvedAt(LocalDateTime resolvedAt) {
+    public void setResolvedAt(Instant resolvedAt) {
         this.resolvedAt = resolvedAt;
     }
 
@@ -116,5 +120,13 @@ public class OrderEntity {
 
     public void setOrderItemEntityList(List<OrderItemEntity> orderItemEntityList) {
         this.orderItemEntityList = orderItemEntityList;
+    }
+
+    public Long getGlobalVersion() {
+        return globalVersion;
+    }
+
+    public void setGlobalVersion(Long globalVersion) {
+        this.globalVersion = globalVersion;
     }
 }

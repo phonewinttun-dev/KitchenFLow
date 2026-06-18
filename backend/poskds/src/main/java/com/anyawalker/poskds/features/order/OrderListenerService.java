@@ -2,49 +2,54 @@ package com.anyawalker.poskds.features.order;
 
 import com.anyawalker.poskds.features.order.dtos.OrderResponse;
 import org.jspecify.annotations.NonNull;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.context.request.async.DeferredResult;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 @Service
 public class OrderListenerService {
-    //for cashier only
-    Map<Long, List<DeferredResult<@NonNull OrderResponse>>> listeners = new ConcurrentHashMap<>();
-    //for chef and admin
+    //group listeners by user roles
+    Map<String,List<DeferredResult<@NonNull List<OrderResponse>>>> listeners = new ConcurrentHashMap<>();
 
     //add the incoming request to wait
-    public void register(Long userId,DeferredResult<@NonNull OrderResponse>  listener){
+    public void register(String userRole,DeferredResult<@NonNull List<OrderResponse>>  listener){
         //register the incoming request with userId
-        listeners.computeIfAbsent(userId,k -> new CopyOnWriteArrayList<>()).add(listener);
+        listeners.computeIfAbsent(userRole,k -> new CopyOnWriteArrayList<>()).add(listener);
 
-        listener.onCompletion(() -> removeListener(userId,listener));
-        listener.onTimeout(() -> removeListener(userId, listener));
-        listener.onError(t -> removeListener(userId, listener));
+        listener.onCompletion(() -> removeListener(userRole,listener));
+        listener.onTimeout(() -> removeListener(userRole, listener));
+        listener.onError(t -> removeListener(userRole, listener));
 
 
     }
-    public void removeListener(Long userId,DeferredResult<@NonNull OrderResponse> listener){
-        listeners.computeIfPresent(userId, (key,list) -> {
+    public void removeListener(String userRole,DeferredResult<@NonNull List<OrderResponse>> listener){
+        listeners.computeIfPresent(userRole, (key,list) -> {
             list.remove(listener);
             return list.isEmpty() ? null : list;
         });
     }
 
-    public void resolveListener(Long userId,OrderResponse completedOrderResponse){
+    public void resolveListener(String userRole,List<OrderResponse> completedOrderResponse){
+        Map<String, Set<String>> rules = Map.of(
+                "ROLE_CASHIER", Set.of("ROLE_ADMIN", "ROLE_CHEF"),
+                "ROLE_ADMIN", Set.of("ROLE_CHEF", "ROLE_CASHIER"),
+                "ROLE_CHEF", Set.of("ROLE_CASHIER", "ROLE_ADMIN"));
         //.compute has the thread safe feature and easy to write but
         //null mean delete and returning the same value mean not delete from Map<>
-        listeners.computeIfPresent(userId,(key,list) -> {
-           for (DeferredResult<@NonNull OrderResponse> awaitingListener : list){
-               //this is like a doFilter() the releasing point
-               awaitingListener.setResult(completedOrderResponse);
-           }
-           return null;
-        });
+        rules.get(userRole).forEach(r -> {
+            listeners.computeIfPresent(r,(key,list)-> {
+                for (DeferredResult<@NonNull List<OrderResponse>> awaitingListener : list){
+                    awaitingListener.setResult(completedOrderResponse);
+                }
+                return null;
+            });
+        } );
+
     }
 }

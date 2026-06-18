@@ -13,13 +13,14 @@ import com.anyawalker.poskds.models.entities.OrderItemEntity;
 import com.anyawalker.poskds.models.entities.UserEntity;
 import com.anyawalker.poskds.repos.OrderRepo;
 import com.anyawalker.poskds.repos.UserRepo;
-import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 @Service
@@ -45,6 +46,7 @@ public class OrderService {
     public List<OrderResponse> viewAllOrders() {
 
         return orderRepo.findAll().stream().map(
+
                 orderEntity -> new OrderResponse(
                         orderEntity.getId(),
                         orderEntity.getUserEntity().getId(),
@@ -53,11 +55,12 @@ public class OrderService {
                         orderEntity.getOrderItemEntityList().stream()
                                 .map(orderItemMapper::toResponseDto)
                                 .toList(),
-                        orderEntity.getTotalPrice()
+                        orderEntity.getTotalPrice(),
+                        orderEntity.getGlobalVersion()
                 )
         ).toList();
     }
-
+    AtomicLong globalVersion = new AtomicLong(1);
     @Transactional
     public OrderResponse createOrder(OrderRequest orderRequest, Long userId) {
         UserEntity orderCreator = userRepo.findById(userId)
@@ -100,6 +103,7 @@ public class OrderService {
                 .toList();
         order.setOrderItemEntityList(orderItemList);
         order.setTotalPrice(totalOrderPrice.get());
+        order.setGlobalVersion(1L);
         OrderEntity savedOrder = orderRepo.save(order);
 
         //map orderItemEntity to orderItemResponse to get the db generated id
@@ -107,13 +111,14 @@ public class OrderService {
                 .stream()
                 .map(orderItemMapper::toResponseDto)
                 .toList();
-
         return new OrderResponse(
                 savedOrder.getId(),
                 userId,
                 savedOrder.getStatus(),
                 "order created successfully",
-                orderItemResponses,savedOrder.getTotalPrice());
+                orderItemResponses,savedOrder.getTotalPrice(),
+                1L
+        );
     }
 
     @Transactional
@@ -125,11 +130,12 @@ public class OrderService {
                 findByIdAndUserEntity_Id(orderId, userId)
                 .orElseThrow(() -> new OrderFailureException("Order doesn't exist"));
 
+
         if (!orderEntity.getStatus().equals(OrderStatus.WAITING.getValue()))
             throw new OrderFailureException("Cannot update due to order status " +
                     orderEntity.getStatus() +
                     ".Can only update while waiting");
-
+        //Map<key,value> {"key" : value}
         Map<Long, OrderItemUpdateRequest> nonNullRequests = orderItemUpdateRequests.stream()
                 .filter(orderItemUpdateRequest -> orderItemUpdateRequest.id() != null)
                 .collect(Collectors.toMap(OrderItemUpdateRequest::id, orderItemUpdateRequest -> orderItemUpdateRequest));
@@ -177,6 +183,7 @@ public class OrderService {
             }
         }
         orderEntity.setTotalPrice(orderTotalPrice.get());
+        orderEntity.setGlobalVersion(globalVersion.addAndGet(1));
         OrderEntity savedOrder = orderRepo.save(orderEntity);
 
         //map orderItemEntity to orderItemResponse to get the db generated id
@@ -190,7 +197,9 @@ public class OrderService {
                 userId,
                 savedOrder.getStatus(),
                 "order updated successfully",
-                orderItemResponses, savedOrder.getTotalPrice());
+                orderItemResponses, savedOrder.getTotalPrice(),
+                globalVersion.get()
+                );
     }
 
     @Transactional
@@ -238,26 +247,47 @@ public class OrderService {
 
         //update status via entity object
         if (nextStatus.equals(OrderStatus.COMPLETE.getValue()) || nextStatus.equals(OrderStatus.CANCEL.getValue()))
-            targetOrderEntity.setResolvedAt(LocalDateTime.now());
+            targetOrderEntity.setResolvedAt(Instant.now());
 
         targetOrderEntity.setStatus(nextStatus);
+        targetOrderEntity.setGlobalVersion(globalVersion.addAndGet(1));
+        OrderEntity savedOrder = orderRepo.save(targetOrderEntity);
 
         //Mapping operation
-        List<OrderItemResponse> orderItemResponses = targetOrderEntity.getOrderItemEntityList()
+        List<OrderItemResponse> orderItemResponses = savedOrder.getOrderItemEntityList()
                 .stream()
                 .map(orderItemMapper::toResponseDto)
                 .toList();
-        Long orderCreatorId = targetOrderEntity.getUserEntity().getId();
+        Long orderCreatorId = savedOrder.getUserEntity().getId();
         OrderResponse response = new OrderResponse(
-                targetOrderEntity.getId(),
+                savedOrder.getId(),
                 orderCreatorId,
-                targetOrderEntity.getStatus(),
+                savedOrder.getStatus(),
                 "order status updated successfully",
                 orderItemResponses,
-                targetOrderEntity.getTotalPrice()
+                savedOrder.getTotalPrice(),
+                globalVersion.get()
         );
-        orderListenerService.resolveListener(orderCreatorId, response);
 
+        orderListenerService.resolveListener(userRole, List.of(response));
         return  response;
     }
+    public List<OrderResponse> getChanges(Long previousVersion){
+
+        return orderRepo.findByGlobalVersionGreaterThan(previousVersion)
+                .stream()
+                .map(orderEntity -> new OrderResponse(
+                        orderEntity.getId(),
+                        orderEntity.getUserEntity().getId(),
+                        orderEntity.getStatus(),
+                        "order status updated successfully",
+                        orderEntity.getOrderItemEntityList().stream().map(orderItemMapper::toResponseDto).toList(),
+                        orderEntity.getTotalPrice(),
+                        orderEntity.getGlobalVersion()
+                ))
+                .distinct()
+                .toList();
+
+    }
+
 }
